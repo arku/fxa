@@ -12,69 +12,52 @@
  Will create these files
 
  ./config/key.json
+ ./config/newKey.json
  ./config/oldKey.json
 
+ This script is used for initializing keys in a dev environment.
  If these files already exist, this script will show an error message
- and exit. You must remove both keys if you want to generate a new
+ and exit. You must remove all keys if you want to generate a new
  keypair.
  */
 
 const fs = require('fs');
 const assert = require('assert');
-const crypto = require('crypto');
-const generateRSAKeypair = require('keypair');
-const JwTool = require('fxa-jwtool');
+const keys = require('../lib/keys');
 
 const keyPath = './fxa-oauth-server/config/key.json';
+const newKeyPath = './fxa-oauth-server/config/newKey.json';
 const oldKeyPath = './fxa-oauth-server/config/oldKey.json';
 
 try {
-  var keysExist = fs.existsSync(keyPath) && fs.existsSync(oldKeyPath);
+  var keysExist =
+    fs.existsSync(keyPath) ||
+    fs.existsSync(newKeyPath) ||
+    fs.existsSync(oldKeyPath);
   assert(!keysExist, 'keys already exists');
 } catch (e) {
   process.exit();
 }
 
-// We tag our keys with their creation time, and a unique key id
-// based on a hash of the public key and the timestamp.  The result
-// comes out like:
-//  {
-//    kid: "2017-03-16-ebe69008de771d62cd1cadf9faa6daae"
-//    "fxa-createdAt": 1489716000,
-//  }
-function makeKeyProperties(kp) {
-  var now = new Date();
-  return {
-    // Key id based on timestamp and hash of public key.
-    kid:
-      now.toISOString().slice(0, 10) +
-      '-' +
-      crypto
-        .createHash('sha256')
-        .update(kp.public)
-        .digest('hex')
-        .slice(0, 32),
-    // Timestamp to nearest hour; consumers don't need to know the precise time.
-    'fxa-createdAt': Math.round(now / 1000 / 3600) * 3600,
-  };
-}
-
 function main(cb) {
-  var kp = generateRSAKeypair();
-  var privKey = JwTool.JWK.fromPEM(kp.private, makeKeyProperties(kp));
   try {
     fs.mkdirSync('./fxa-oauth-server/config');
   } catch (accessEx) {}
 
-  fs.writeFileSync(keyPath, JSON.stringify(privKey.toJSON(), undefined, 2));
+  const privKey = keys.generatePrivateKey();
+  fs.writeFileSync(keyPath, JSON.stringify(privKey, undefined, 2));
   console.log('Key saved:', keyPath); //eslint-disable-line no-console
+
+  // The "new key" is optional, for dev purposes we just write an empty one.
+  fs.writeFileSync(newKeyPath, JSON.stringify({}, undefined, 2));
+  console.log('NewKey wiped:', newKeyPath); //eslint-disable-line no-console
 
   // The "old key" is not used to sign anything, so we don't need to store
   // the private component, we just need to serve the public component
-  // so that old signatures can be verified correctly.
-  kp = generateRSAKeypair();
-  var pubKey = JwTool.JWK.fromPEM(kp.public, makeKeyProperties(kp));
-  fs.writeFileSync(oldKeyPath, JSON.stringify(pubKey.toJSON(), undefined, 2));
+  // so that old signatures can be verified correctly.  In dev we just
+  // write a fake one for testing purposes.
+  const pubKey = keys.extractPublicKey(keys.generatePrivateKey());
+  fs.writeFileSync(oldKeyPath, JSON.stringify(pubKey, undefined, 2));
   console.log('OldKey saved:', oldKeyPath); //eslint-disable-line no-console
   cb();
 }

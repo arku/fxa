@@ -5,7 +5,9 @@
 const config = require('../config');
 
 const KEYS = (function() {
-  var priv = config.get('openid.key');
+  const privKey = config.get('openid.key');
+  const newPrivKey = config.get('openid.newKey');
+  const oldPubKey = config.get('openid.oldKey');
 
   function pub(key) {
     // Hey, this is important. Listen up.
@@ -25,10 +27,13 @@ const KEYS = (function() {
     };
   }
 
-  var keys = [pub(priv)];
-  var old = config.get('openid.oldKey');
-  if (Object.keys(old).length) {
-    keys.push(pub(old));
+  const keys = [pub(privKey)];
+  if (newPrivKey) {
+    keys.push(pub(newPrivKey));
+  }
+  if (oldPubKey) {
+    // Still use `pub()` here, just in case...
+    keys.push(pub(oldPubKey));
   }
   return { keys: keys };
 })();

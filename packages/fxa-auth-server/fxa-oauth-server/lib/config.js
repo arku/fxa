@@ -226,25 +226,38 @@ const conf = convict({
     },
   },
   openid: {
+    // See ../docs/signing-key-management.md to read more about what these different keys are for.
     keyFile: {
-      doc: 'Path to Private key JWK to sign id_tokens',
+      doc: 'Path to private key JWK to sign various kinds of JWT tokens',
       format: String,
       default: '',
       env: 'FXA_OPENID_KEYFILE',
     },
+    newKeyFile: {
+      doc:
+        'Path to private key JWK that will be used to sign JWTs in the future',
+      format: String,
+      default: '',
+      env: 'FXA_OPENID_NEWKEYFILE',
+    },
     oldKeyFile: {
-      doc: 'Path to previous key that was used to sign id_tokens',
+      doc: 'Path to public key JWK that was used to sign JWTs in the past',
       format: String,
       default: '',
       env: 'FXA_OPENID_OLDKEYFILE',
     },
     key: {
-      doc: 'Private JWK to sign id_tokens',
+      doc: 'Private key JWK to sign various kinds of JWT tokens',
       default: {},
       env: 'FXA_OPENID_KEY',
     },
+    newKey: {
+      doc: 'Private key JWK that will be used to sign JWTs in the future',
+      default: {},
+      env: 'FXA_OPENID_NEWKEY',
+    },
     oldKey: {
-      doc: 'The previous public key that was used to sign id_tokens',
+      doc: 'Public key JWK that was used to sign JWTs in the past',
       default: {},
       env: 'FXA_OPENID_OLDKEY',
     },
@@ -349,34 +362,62 @@ var options = {
 
 conf.validate(options);
 
-// Replace openid key if file specified
+// Load our various keys from files if specified,
+// and check their contents.
 if (conf.get('openid.keyFile')) {
   conf.set('openid.key', require(conf.get('openid.keyFile')));
+}
+
+if (conf.get('openid.newKeyFile')) {
+  conf.set('openid.newKey', require(conf.get('openid.newKeyFile')));
 }
 
 if (conf.get('openid.oldKeyFile')) {
   conf.set('openid.oldKey', require(conf.get('openid.oldKeyFile')));
 }
 
-var key = conf.get('openid.key');
+// The active signing key should be a proper RSA private key.
+const key = conf.get('openid.key');
 assert.equal(key.kty, 'RSA', 'openid.key.kty must be RSA');
 assert(key.kid, 'openid.key.kid is required');
 assert(key.n, 'openid.key.n is required');
 assert(key.e, 'openid.key.e is required');
 assert(key.d, 'openid.key.d is required');
 
-var oldKey = conf.get('openid.oldKey');
-if (Object.keys(oldKey).length) {
+// The pending signing key, if present, should be a proper RSA private key
+// and must be different from the active key..
+const newKey = conf.get('openid.newKey');
+if (newKey && Object.keys(newKey).length) {
+  assert.equal(newKey.kty, 'RSA', 'openid.newKey.kty must be RSA');
+  assert(newKey.kid, 'openid.newKey.kid is required');
+  assert.notEqual(
+    key.kid,
+    newKey.kid,
+    'openid.key.kid must differ from openid.newKey.id'
+  );
+  assert(newKey.n, 'openid.newKey.n is required');
+  assert(newKey.e, 'openid.newKey.e is required');
+  assert(newKey.d, 'openid.newkey.d is required');
+} else {
+  conf.set('openid.newKey', null);
+}
+
+// The retired signing key, if present, should be a proper RSA *public* key.
+// We will never again sign anything with it, so no need to keep the private component.
+const oldKey = conf.get('openid.oldKey');
+if (oldKey && Object.keys(oldKey).length) {
   assert.equal(oldKey.kty, 'RSA', 'openid.oldKey.kty must be RSA');
   assert(oldKey.kid, 'openid.oldKey.kid is required');
   assert.notEqual(
     key.kid,
     oldKey.kid,
-    'openid.key.kid must differ from oldKey'
+    'openid.key.kid must differ from openid.oldKey.kid'
   );
   assert(oldKey.n, 'openid.oldKey.n is required');
   assert(oldKey.e, 'openid.oldKey.e is required');
   assert(!oldKey.d, 'openid.oldKey.d is forbidden');
+} else {
+  conf.set('openid.oldKey', null);
 }
 
 module.exports = conf;
