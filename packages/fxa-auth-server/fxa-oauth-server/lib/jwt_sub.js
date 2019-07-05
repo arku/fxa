@@ -8,6 +8,8 @@ const config = require('./config');
 
 const PPID_ENABLED = config.get('ppid.enabled');
 const PPID_CLIENT_IDS = new Set(config.get('ppid.enabledClientIds'));
+const PPID_ROTATING_CLIENT_IDS = new Set(config.get('ppid.rotatingClientIds'));
+const PPID_ROTATION_PERIOD_MS = config.get('ppid.rotationPeriodMS');
 const PPID_SALT = config.get('ppid.salt');
 const PPID_INFO = 'oidc ppid sub';
 
@@ -21,12 +23,16 @@ module.exports = async function generateSub(
   const userIdHex = hex(userIdBuf);
   const clientIdHex = hex(clientIdBuf);
 
-  // TODO - add automatic rotation based on server timestamp.
+  // TODO - constrain clientSeed.
 
   if (PPID_ENABLED && PPID_CLIENT_IDS.has(clientIdHex)) {
+    let timeBasedContext = 0;
+    if (PPID_ROTATING_CLIENT_IDS.has(clientIdHex)) {
+      timeBasedContext = Math.floor(Date.now() / PPID_ROTATION_PERIOD_MS);
+    }
     return hex(
       await hkdf(
-        `${clientIdHex}${userIdHex}${clientSeed}`,
+        `${clientIdHex}.${userIdHex}.${clientSeed}.${timeBasedContext}`,
         PPID_INFO,
         PPID_SALT,
         SUB_LENGTH_BYTES

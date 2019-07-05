@@ -289,6 +289,18 @@ const conf = convict({
       default: [],
       env: 'PPID_CLIENT_IDS',
     },
+    rotatingClientIds: {
+      doc: 'client_ids that receive automatically rotating PPIDs based on server time',
+      format: Array,
+      default: [],
+      env: 'PPID_ROTATING_CLIENT_IDS',
+    },
+    rotationPeriodMS: {
+      doc: 'salt used in HKDF for PPIDs, converted to milliseconds',
+      format: 'duration',
+      default: '6 hours',
+      env: 'PPID_ROTATION_PERIOD',
+    },
     salt: {
       doc: 'salt used in HKDF for PPIDs',
       format: String,
