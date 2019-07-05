@@ -276,6 +276,26 @@ const conf = convict({
       env: 'FXA_OPENID_TTL',
     },
   },
+  ppid: {
+    enabled: {
+      doc: 'Whether pairwise pseudonymous identifiers (PPIDs) are enabled',
+      format: Boolean,
+      default: true,
+      env: 'PPID_ENABLED',
+    },
+    enabledClientIds: {
+      doc: 'client_ids that receive PPIDs',
+      format: Array,
+      default: [],
+      env: 'PPID_CLIENT_IDS',
+    },
+    salt: {
+      doc: 'salt used in HKDF for PPIDs',
+      format: String,
+      default: 'YOU MUST CHANGE ME',
+      env: 'PPID_SALT',
+    },
+  },
   publicUrl: {
     format: 'url',
     default: 'http://127.0.0.1:9010',

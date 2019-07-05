@@ -16,6 +16,7 @@ const amplitude = require('./metrics/amplitude')(
   logger,
   config.getProperties()
 );
+const sub = require('./jwt_sub');
 
 const ACR_VALUE_AAL2 = 'AAL2';
 const ACCESS_TYPE_OFFLINE = 'offline';
@@ -168,10 +169,10 @@ module.exports.generateTokens = async function generateTokens(grant) {
   return result;
 };
 
-function generateIdToken(grant, access) {
+async function generateIdToken(grant, access) {
   var now = Math.floor(Date.now() / 1000);
   var claims = {
-    sub: hex(grant.userId),
+    sub: await sub(grant.userId, grant.clientId, 0),
     aud: hex(grant.clientId),
     //iss set in jwt.sign
     iat: now,
