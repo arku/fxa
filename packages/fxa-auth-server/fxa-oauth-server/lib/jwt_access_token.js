@@ -12,7 +12,7 @@ const HEADER_TYP = 'at+JWT';
 /**
  * Create a JWT access token from `grant`
  */
-exports.create = async function generateJWTAccessToken(accessToken, grant) {
+exports.create = async function generateJWTAccessToken(accessToken, grant, ppidSeed) {
   const clientId = hex(grant.clientId);
 
   // Claims list from:
@@ -34,7 +34,7 @@ exports.create = async function generateJWTAccessToken(accessToken, grant) {
     // iss is set in jwt.sign
     jti: hex(accessToken.token),
     scope: grant.scope.toString(),
-    sub: await sub(grant.userId, clientId, 0),
+    sub: await sub(grant.userId, clientId, ppidSeed),
   };
 
   return {

@@ -141,6 +141,11 @@ const PAYLOAD_SCHEMA = Joi.object({
     is: GRANT_FXA_ASSERTION,
     otherwise: Joi.forbidden(),
   }),
+
+  ppid_seed: Joi.number()
+    .greater(-1)
+    .less(17)
+    .default(0),
 });
 
 module.exports = {
@@ -208,7 +213,7 @@ module.exports = {
 
     const client = await authenticateClient(params);
     const requestedGrant = await validateGrantParameters(client, params);
-    return await generateTokens(requestedGrant);
+    return await generateTokens(requestedGrant, req.payload.ppid_seed);
   },
 };
 

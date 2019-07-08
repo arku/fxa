@@ -134,9 +134,9 @@ module.exports.validateRequestedGrant = async function validateRequestedGrant(
 //
 // This function does *not* perform any authentication or validation, assuming that
 // the specified grant has been sufficiently vetted by calling code.
-module.exports.generateTokens = async function generateTokens(grant) {
+module.exports.generateTokens = async function generateTokens(grant, ppidSeed) {
   // We always generate an access_token.
-  const access = await exports.generateAccessToken(grant);
+  const access = await exports.generateAccessToken(grant, ppidSeed);
 
   const result = {
     access_token: access.jwt_token || access.token.toString('hex'),
@@ -158,7 +158,7 @@ module.exports.generateTokens = async function generateTokens(grant) {
   }
   // Maybe also generate an idToken?
   if (grant.scope && grant.scope.contains(SCOPE_OPENID)) {
-    result.id_token = await generateIdToken(grant, access);
+    result.id_token = await generateIdToken(grant, access, ppidSeed);
   }
 
   amplitude('token.created', {
@@ -169,10 +169,10 @@ module.exports.generateTokens = async function generateTokens(grant) {
   return result;
 };
 
-async function generateIdToken(grant, access) {
+async function generateIdToken(grant, access, ppidSeed) {
   var now = Math.floor(Date.now() / 1000);
   var claims = {
-    sub: await sub(grant.userId, grant.clientId, 0),
+    sub: await sub(grant.userId, grant.clientId, ppidSeed),
     aud: hex(grant.clientId),
     //iss set in jwt.sign
     iat: now,
@@ -190,7 +190,7 @@ async function generateIdToken(grant, access) {
   return jwt.sign(claims);
 }
 
-exports.generateAccessToken = async function generateAccessToken(grant) {
+exports.generateAccessToken = async function generateAccessToken(grant, ppidSeed) {
   const accessToken = await db.generateAccessToken(grant);
 
   if (
@@ -202,5 +202,5 @@ exports.generateAccessToken = async function generateAccessToken(grant) {
     return accessToken;
   }
 
-  return JWTAccessToken.create(accessToken, grant);
+  return JWTAccessToken.create(accessToken, grant, ppidSeed);
 };
